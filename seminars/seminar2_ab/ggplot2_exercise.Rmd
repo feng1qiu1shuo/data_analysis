@@ -1,0 +1,130 @@
+---
+title: "ggplot2_exercise"
+author: "Qiushuo Feng"
+date: "January 10, 2019"
+output:
+  html_document:
+    keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Part 1: First time ggplot-ing
+```{r echo=FALSE, warning=FALSE}
+library(tidyverse)
+
+mpg
+
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy))
+  
+ggplot(data = mpg) +
+  geom_smooth(mapping = aes(x = displ, y = hwy))
+  
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy, colour = class))
+  
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy, size = class))
+  
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = displ, y = hwy), color = "blue")
+  
+apropos("^geom_")
+apropos("^stat_")
+apropos("^scale_")
+
+ggplot(data = mpg, 
+       mapping = aes(x = displ, y = hwy)) +
+  geom_point() +
+  geom_smooth()
+
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy)) +
+  geom_smooth(mapping = aes(x = displ, y = hwy))
+  
+ggplot(data = mpg, 
+       mapping = aes(x = displ, y = hwy, color = year)) +
+  geom_point() +
+  geom_smooth()
+
+ggplot(data = mpg, 
+       mapping = aes(x = displ, y = hwy, color = trans)) +
+  geom_point() +
+  geom_smooth()
+  
+warnings()
+
+(averageEfficiency <- 
+  mpg %>% group_by(class) %>% summarise(fuel_efficiency = mean(hwy)))
+  
+ggplot(data = averageEfficiency,
+       mapping = aes(x = class, y = fuel_efficiency, fill = class)) +
+  geom_bar(stat = "identity") +
+  ylab("Fuel Efficiency (miles per gallon)") +
+  xlab("Vehicle Type") +
+  scale_y_reverse()
+  
+ggplot(averageEfficiency) + 
+  geom_bar(aes(x = class, y = fuel_efficiency, fill = class),
+           stat = "identity") +
+  coord_flip()
+  
+ggplot(averageEfficiency) + 
+  geom_bar(aes(x = class, y = fuel_efficiency, fill = class),
+           stat = "identity") +
+  coord_polar()
+  
+ggplot(data = mpg, 
+       mapping = aes(x = displ, y = hwy)) +
+  geom_point() +
+  facet_wrap(~class)
+
+```
+
+## Part 2: Deliverable
+```{r}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy, size = class, colour = drv)) 
+```
+
+## Part 3: Data visualization demos
+```{r echo=FALSE}
+kDat <- readRDS("GSE4051_MINI.rds")
+oDat <-
+  with(kDat,
+       data.frame(sidChar, sidNum, devStage, gType,
+                  probeset = factor(rep(c("crabHammer", "eggBomb",
+                                          "poisonFang"), each = nrow(kDat))),
+                  geneExp = c(crabHammer, eggBomb, poisonFang)))
+oDat %>% head() # only printing the first 6 rows
+
+ggplot(data = oDat) +
+  geom_point(mapping = aes(x = devStage, y = geneExp))
+
+ggplot(oDat, aes(devStage, geneExp)) + 
+   geom_point() +
+  facet_wrap(~ probeset)+
+  aes(color = gType)
+  
+ggplot(oDat, aes(geneExp)) + 
+   geom_density() +
+   geom_point(aes(y = 0.05), position = position_jitter(height = 0.005)) +
+   facet_wrap(~ gType)
+   
+ggplot(oDat, aes(geneExp, color = gType)) + 
+  geom_density() +
+  geom_point(aes(y = 0.05), position = position_jitter(height = 0.005))
+  
+ggplot(oDat, aes(devStage, geneExp)) + 
+   geom_boxplot()
+   
+ggplot(oDat, aes(devStage, geneExp)) + 
+   geom_boxplot() +
+  facet_wrap(~ gType)
+  
+ggplot(oDat, aes(devStage, geneExp)) + 
+   geom_violin()
+```

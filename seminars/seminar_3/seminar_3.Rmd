@@ -1,0 +1,125 @@
+---
+title: "seminar_3"
+author: "Qiushuo Feng"
+date: "January 28, 2019"
+output: 
+  html_document:
+    keep_md: true
+---
+
+```{r, results='hide', message=FALSE, warning=FALSE}
+library(GEOquery)
+library(biomaRt)
+library(tidyverse)
+library(data.table)
+library(reshape2)
+```
+
+# Part 1: download, extract and melt data
+```{r}
+gds <- getGEO("GDS507")
+
+meta_data <- data.frame(Sample = gds@dataTable@columns$sample, disease = gds@dataTable@columns$disease.state)
+#we grab this info from the appropriate slots above. 
+gds_data <- gds@dataTable@table
+
+melted_data <- melt(gds_data, id.vars = c("ID_REF", "IDENTIFIER"), var = "Sample")
+(new_melted_data <- melted_data %>% 
+	group_by(Sample, IDENTIFIER) %>% 
+	summarize(Count = mean(value)))
+```
+
+# Part 2: annotation with chromosome name
+```{r}
+#open connection between biomaRt and R. 
+human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+
+#function that takes in data frame, and outputs same data frame with associated chromosome annotations, no transcript length
+identify_gene_names_chromosome <- function(df){
+	names(df) <- c("Sample", "hgnc_symbol", "Count")
+	names <- getBM( attributes=c("hgnc_symbol", "chromosome_name") , filters= "hgnc_symbol", values = unique(df$hgnc_symbol), mart = human)
+	left_join(df, names, by = "hgnc_symbol")
+}
+data_with_chromosome <- identify_gene_names_chromosome(new_melted_data) %>% 
+	filter(chromosome_name %in% c(1:23, "X", "Y"))
+head(data_with_chromosome)
+```
+
+### Part 2: Exercise (average expression of genes on the X chromosome changes between RCC and normal cells)
+```{r}
+full_data <- left_join(data_with_chromosome, meta_data, by = "Sample")
+full_data %>% 
+	group_by(disease) %>% 
+	filter(chromosome_name == "X") %>% 
+	summarize(mean = mean(Count))
+```
+
+# Part 3: Graphing expression data
+```{r}
+#choose random number between 1 and however many genes we have. 
+set.seed(5747540)
+sample_to_choose <- sample(1:length(unique(full_data$hgnc_symbol)), size = 100)
+#choose genes that correspond to those numbers in a list of genes. 
+names_to_choose <- as.character(unique(full_data$hgnc_symbol)[sample_to_choose])
+#graphing gene expression value of each sample in each chromosome
+full_data %>% 
+    filter(hgnc_symbol %in% names_to_choose) %>% 
+    group_by(Sample) %>% 
+    ggplot(aes(x = as.factor(chromosome_name), y = Count)) + geom_point()
+```
+
+### Part 3: Exercise(calculate sum and percentage and plot)
+```{r}
+full_data %>% 
+	filter(hgnc_symbol %in% names_to_choose) %>%
+  group_by(Sample) %>%
+  mutate(Sum = sum(Count), Percentage = Count/sum(Count)) %>%
+  ggplot(aes(x = as.factor(chromosome_name), y = Percentage)) + geom_point()
+```
+
+# Part 4 - Analyzing the results of statistical tests
+```{r}
+full_data %>% 
+	group_by(hgnc_symbol) %>% 
+	summarize( pvalue = t.test(Count ~ disease)$p.value)
+```
+
+### Part 4: Exercise (plot and extract gene with p < 0.05 and lowest pvalue)
+1. Plot pvalue density
+```{r}
+full_data %>% 
+	group_by(hgnc_symbol) %>% 
+	summarize( pvalue = t.test(Count ~ disease)$p.value) %>%
+  ggplot(aes(pvalue)) + geom_density()
+```
+
+2. Extract genes with pvalue lower than 0.05
+```{r}
+full_data %>% 
+	group_by(hgnc_symbol) %>% 
+	summarize( pvalue = t.test(Count ~ disease)$p.value) %>%
+  filter(pvalue < 0.05) %>%
+  head()
+```
+
+3. Extract gene with lowest pvalue 
+```{r}
+pvalue_asce <- full_data %>% 
+	group_by(hgnc_symbol) %>% 
+	summarize( pvalue = t.test(Count ~ disease)$p.value) %>%
+  arrange(pvalue)
+pvalue_asce[1,1]
+```
+
+4. Add transcript length
+```{r}
+#function that takes in data frame, and outputs same data frame with associated chromosome annotations and transcript length
+identify_gene_names_chromosome_transcript <- function(df){
+	names(df) <- c("Sample", "hgnc_symbol", "Count")
+	names <- getBM( attributes=c("hgnc_symbol", "chromosome_name", "transcript_length") , filters= "hgnc_symbol", values = unique(df$hgnc_symbol), mart = human)
+	left_join(df, names, by = "hgnc_symbol")
+}
+data_with_chromosome_transcript <- identify_gene_names_chromosome_transcript(new_melted_data) %>% 
+	filter(chromosome_name %in% c(1:23, "X", "Y"))
+head(data_with_chromosome_transcript)
+```
